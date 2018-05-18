@@ -1,0 +1,18 @@
+version: 2
+importPivots: 1
+tpsheetFileNames:
+- Assets/AnimalRelated/Bat/SpriteSheets/Bat-0.tpsheet
+- Assets/AnimalRelated/Bat/SpriteSheets/Bat-1.tpsheet
+- Assets/codeandweb.com/Example/SpriteSheet/sprites.tpsheet
+- Assets/CompressionCheck/Textures/Bat-0.tpsheet
+textureFileNames:
+- Assets/AnimalRelated/Bat/SpriteSheets/Bat-0.png
+- Assets/AnimalRelated/Bat/SpriteSheets/Bat-1.png
+- Assets/codeandweb.com/Example/SpriteSheet/sprites.png
+- Assets/CompressionCheck/Textures/Bat-0.png
+normalmapFileNames:
+- 
+- 
+- Assets/codeandweb.com/Example/SpriteSheet/sprites_n.png
+- 
+enableDebugOutput: 0

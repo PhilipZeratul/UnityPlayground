@@ -1,0 +1,22 @@
+#
+# Sprite sheet data for Unity.
+#
+# To import these sprites into your Unity project, download "TexturePackerImporter":
+# http://www.codeandweb.com/texturepacker/unity
+#
+# $TexturePacker:SmartUpdate:f779586837b470a51bbec9dd893f7caf:2e83c25bc5dc8f126dc57606390a2de8:fa42761247c8dd4a4d0075beca622c02$
+#
+:format=40300
+:texture=Bat-0.png
+:size=2048x2048
+:pivotpoints=enabled
+:borders=disabled
+
+Cards/Bat_Card;1503;1507;418;540; 0.5;0.5; 0;0;0;0
+Sprites/Body;1736;1080;168;263; 0.5;0.5; 0;0;0;0
+Sprites/Cave;1;960;1500;1087; 0.5;0.5; 0;0;0;0
+Sprites/LeftLeg;1961;1987;35;60; 0.5;0.5; 0;0;0;0
+Sprites/LeftWing;1503;1340;231;165; 0.5;0.5; 0;0;0;0
+Sprites/RightLeg;1923;1988;36;59; 0.5;0.5; 0;0;0;0
+Sprites/RightWing;1736;1345;224;160; 0.5;0.5; 0;0;0;0
+VideoRelated/Line/Bat_Line;1;334;1024;624; 0.5;0.4823717948717948; 0;0;0;0
