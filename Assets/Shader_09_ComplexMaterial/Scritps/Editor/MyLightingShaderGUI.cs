@@ -97,7 +97,7 @@ public class MyLightingShaderGUI : ShaderGUI
         else if (IsKeywordEnabled("_RENDERING_TRANSPARENT"))
         {
             mode = RenderingMode.Transparent;
-        }
+        }        
 
         EditorGUI.BeginChangeCheck();
         mode = (RenderingMode)EditorGUILayout.EnumPopup(MakeLabel("Rendering Mode"), mode);
@@ -116,8 +116,23 @@ public class MyLightingShaderGUI : ShaderGUI
                 mat.SetInt("_SrcBlend", (int)settings.srcBlend);
                 mat.SetInt("_DstBlend", (int)settings.dstBlend);
                 mat.SetInt("_ZWrite", settings.zWrite ? 1 : 0);
-            }
+            }            
         }
+
+        if (mode == RenderingMode.Fade || mode == RenderingMode.Transparent)
+            DoSemitransparentShadows();
+    }
+
+    private void DoSemitransparentShadows()
+    {
+        EditorGUI.BeginChangeCheck();
+        bool isSemiTransparentShadows = EditorGUILayout.Toggle(
+            MakeLabel("SemiTransp. Shadows", "Semitransparent Shadows"), IsKeywordEnabled("_SEMITRANSPARENT_SHADOWS"));
+        if (EditorGUI.EndChangeCheck())
+            SetKeyword("_SEMITRANSPARENT_SHADOWS", isSemiTransparentShadows);
+
+        if (!isSemiTransparentShadows)
+            shouldShowAlphaCutout = true;
     }
 
     private void DoMain()
