@@ -1,4 +1,4 @@
-﻿Shader "Custom/My First Lighting Shader Deffered PBS"
+﻿Shader "Custom/My First Lighting Shader Fog PBS"
 {    
     Properties
     {
@@ -26,6 +26,7 @@
     CGINCLUDE
 
     #define BINORMAL_PER_FRAGMENT
+    #define FOG_DISTANCE
 
     ENDCG
 
@@ -47,6 +48,7 @@
 
             #pragma multi_compile _ SHADOWS_SCREEN
             #pragma multi_compile _ VERTEXLIGHT_ON
+            #pragma multi_compile_fog
             #pragma shader_feature _NORMAL_MAP
             #pragma shader_feature _METALLIC_MAP
             #pragma shader_feature _ _SMOOTHNESS_ALBEDO _SMOOTHNESS_METALLIC
@@ -83,6 +85,7 @@
             #pragma target 3.0
 
             #pragma multi_compile_fwdadd_fullshadows
+            #pragma multi_compile_fog
             #pragma shader_feature _NORMAL_MAP
             #pragma shader_feature _METALLIC_MAP
             #pragma shader_feature _ _SMOOTHNESS_ALBEDO _SMOOTHNESS_METALLIC

@@ -3,6 +3,13 @@
 #include "UnityPBSLighting.cginc"
 #include "AutoLight.cginc"
 
+#if defined(FOG_LINEAR) || defined(FOG_EXP) || defined(FOG_EXP2)
+    #ifndef FOG_DISTANCE
+        #define FOG_DEPTH 1
+    #endif
+    #define FOG_ON 1   
+#endif
+
 float4 _Tint;
 sampler2D _MainTex, _DetailTex;
 float4 _MainTex_ST, _DetailTex_ST;
@@ -39,13 +46,17 @@ struct Interpolators
         float3 binormal : TEXCOORD3;
     #endif
 
-    float3 worldPos : TEXCOORD4;
+    #if FOG_DEPTH
+        float4 worldPos : TEXCOORD4;
+    #else
+        float3 worldPos : TEXCOORD4;
+    #endif
 
     #ifdef VERTEXLIGHT_ON
         float3 vertexLightColor : TEXCOORD5;
     #endif
 
-    SHADOW_COORDS(5)
+    SHADOW_COORDS(5)      
 };                     
 
 void ComputVertexColor(inout Interpolators i)
@@ -64,7 +75,10 @@ Interpolators MyVertexProgram(VertexData v)
 {
     Interpolators i;
     i.pos = UnityObjectToClipPos(v.vertex);
-    i.worldPos = mul(unity_ObjectToWorld, v.vertex);
+    i.worldPos.xyz = mul(unity_ObjectToWorld, v.vertex);
+    #if FOG_DEPTH
+        i.worldPos.w = i.pos.z;
+    #endif
     i.uv.xy = TRANSFORM_TEX(v.uv, _MainTex);
     i.uv.zw = TRANSFORM_TEX(v.uv, _DetailTex);
     i.normal = UnityObjectToWorldNormal(v.normal);
@@ -162,7 +176,7 @@ UnityLight CreateLight(Interpolators i)
         light.dir = float3(0, 1, 0);
         light.color = 0;
     #else
-        float3 lightVec = _WorldSpaceLightPos0 - i.worldPos;
+        float3 lightVec = _WorldSpaceLightPos0 - i.worldPos.xyz;
         
         #if defined(POINT) || defined(SPOT) || defined(POINT_COOKIE)
             light.dir = normalize(lightVec);
@@ -170,7 +184,7 @@ UnityLight CreateLight(Interpolators i)
             light.dir = _WorldSpaceLightPos0;
         #endif
         
-        UNITY_LIGHT_ATTENUATION(attenuation, i, i.worldPos);        
+        UNITY_LIGHT_ATTENUATION(attenuation, i, i.worldPos.xyz);        
         light.color = _LightColor0.rgb * attenuation;
     #endif      
     return light;
@@ -211,7 +225,7 @@ UnityIndirect CreateIndirectLight(Interpolators i, float3 viewDir)
         Unity_GlossyEnvironmentData envData;
         envData.roughness = 1 - GetSmoothness(i);
                               
-        envData.reflUVW = BoxProjection(reflectionDir, i.worldPos, unity_SpecCube0_ProbePosition, unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax);
+        envData.reflUVW = BoxProjection(reflectionDir, i.worldPos.xyz, unity_SpecCube0_ProbePosition, unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax);
         float3 probe0 = Unity_GlossyEnvironment(UNITY_PASS_TEXCUBE(unity_SpecCube0), unity_SpecCube0_HDR, envData);
         
         #if UNITY_SPECCUBE_BLENDING
@@ -219,7 +233,7 @@ UnityIndirect CreateIndirectLight(Interpolators i, float3 viewDir)
             UNITY_BRANCH
             if (interpolator < 0.99999)
             {
-                envData.reflUVW = BoxProjection(reflectionDir, i.worldPos, unity_SpecCube1_ProbePosition, unity_SpecCube1_BoxMin, unity_SpecCube1_BoxMax);
+                envData.reflUVW = BoxProjection(reflectionDir, i.worldPos.xyz, unity_SpecCube1_ProbePosition, unity_SpecCube1_BoxMin, unity_SpecCube1_BoxMax);
                 float3 probe1 = Unity_GlossyEnvironment(UNITY_PASS_TEXCUBE_SAMPLER(unity_SpecCube1, unity_SpecCube0), unity_SpecCube1_HDR, envData);
             
                 indirectLight.specular = lerp(probe1, probe0, unity_SpecCube0_BoxMin.w);
@@ -275,6 +289,23 @@ void InitializeFragmentNormal(inout Interpolators i)
     );
 }
 
+float4 ApplyFog(float4 color, Interpolators i)
+{
+    #if FOG_ON        
+        float viewDistance = length(_WorldSpaceCameraPos - i.worldPos.xyz);
+        #if FOG_DEPTH
+            viewDistance = UNITY_Z_0_FAR_FROM_CLIPSPACE(i.worldPos.w);
+        #endif
+        UNITY_CALC_FOG_FACTOR_RAW(viewDistance);
+        float3 fogColor = 0;
+        #ifdef FORWARD_ADD_PASS
+            fogColor = unity_FogColor.rgb;
+        #endif
+        color.rgb = lerp(fogColor, color.rgb, saturate(unityFogFactor));   
+    #endif
+    return color; 
+} 
+
 struct FragmentOutput
 {
     #ifdef DEFERRED_PASS
@@ -294,7 +325,7 @@ FragmentOutput MyFragmentProgram(Interpolators i) : SV_TARGET
         clip(alpha - _AlphaCutoff);
     #endif
     InitializeFragmentNormal(i);
-    float3 viewDir = normalize(_WorldSpaceCameraPos - i.worldPos);    
+    float3 viewDir = normalize(_WorldSpaceCameraPos - i.worldPos.xyz);    
     float3 specularTint;
     float oneMinusReflectivity;
     float3 albedo = DiffuseAndSpecularFromMetallic(GetAlbedo(i), GetMetallic(i), specularTint, oneMinusReflectivity);
@@ -327,7 +358,7 @@ FragmentOutput MyFragmentProgram(Interpolators i) : SV_TARGET
         output.gBuffer2 = float4(i.normal * 0.5 + 0.5, 1);
         output.gBuffer3 = color;
     #else
-        output.color = color;
+        output.color = ApplyFog(color, i);
     #endif
     
     return output;
