@@ -139,7 +139,7 @@ public class MyLightingShaderGUI : ShaderGUI
     {
         GUILayout.Label("Main Maps", EditorStyles.boldLabel);
         MaterialProperty mainTex = FindProperty("_MainTex");
-        materialEditor.TexturePropertySingleLine(MakeLabel(mainTex, "Albedo (RGB)"), mainTex, FindProperty("_Tint"));
+        materialEditor.TexturePropertySingleLine(MakeLabel(mainTex, "Albedo (RGB)"), mainTex, FindProperty("_Color"));
         materialEditor.TextureScaleOffsetProperty(mainTex);
         DoMetallic();
         DoSmoothness();
@@ -177,14 +177,19 @@ public class MyLightingShaderGUI : ShaderGUI
         Texture textureValue = emissionMap.textureValue;
         EditorGUI.BeginChangeCheck();
         materialEditor.TexturePropertyWithHDRColor(MakeLabel(emissionMap, "Emission (RGB)"), emissionMap, FindProperty("_Emission"), emissionConfig, false);
-        if (EditorGUI.EndChangeCheck() && emissionMap.textureValue != textureValue)
-            SetKeyword("_EMISSION_MAP", emissionMap.textureValue);
+        if (EditorGUI.EndChangeCheck())
+        {
+            if (emissionMap.textureValue != textureValue)
+                SetKeyword("_EMISSION_MAP", emissionMap.textureValue);
+            foreach (Material mat in materialEditor.targets)
+                mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.BakedEmissive;            
+        }
 
     }
 
     private void DoAlphaCutoff()
     {
-        MaterialProperty alphaCutoff = FindProperty("_AlphaCutoff");
+        MaterialProperty alphaCutoff = FindProperty("_Cutoff");
         EditorGUI.indentLevel += 2;
         materialEditor.ShaderProperty(alphaCutoff, MakeLabel(alphaCutoff));
         EditorGUI.indentLevel -= 2;
