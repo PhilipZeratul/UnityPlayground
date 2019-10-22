@@ -177,12 +177,13 @@ public class MyLightingShaderGUI : ShaderGUI
         Texture textureValue = emissionMap.textureValue;
         EditorGUI.BeginChangeCheck();
         materialEditor.TexturePropertyWithHDRColor(MakeLabel(emissionMap, "Emission (RGB)"), emissionMap, FindProperty("_Emission"), emissionConfig, false);
+        materialEditor.LightmapEmissionProperty(2);
         if (EditorGUI.EndChangeCheck())
         {
             if (emissionMap.textureValue != textureValue)
                 SetKeyword("_EMISSION_MAP", emissionMap.textureValue);
-            foreach (Material mat in materialEditor.targets)
-                mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.BakedEmissive;            
+            foreach (Material mat in materialEditor.targets)            
+                mat.globalIlluminationFlags &= ~MaterialGlobalIlluminationFlags.EmissiveIsBlack;            
         }
 
     }
