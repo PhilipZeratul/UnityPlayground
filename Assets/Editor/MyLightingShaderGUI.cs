@@ -78,7 +78,7 @@ public class MyLightingShaderGUI : ShaderGUI
         DoRenderingMode();
         DoMain();
         DoSecondary();
-        
+        DoAdvanced();
     }
 
     private void DoRenderingMode()
@@ -259,7 +259,13 @@ public class MyLightingShaderGUI : ShaderGUI
         materialEditor.TexturePropertySingleLine(MakeLabel(detailNormalMap), detailNormalMap, textureValue ? FindProperty("_DetailBumpScale") : null);
         if (EditorGUI.EndChangeCheck() && detailNormalMap.textureValue != textureValue)
             SetKeyword("_DETAIL_NORMAL_MAP", detailNormalMap.textureValue);
-    }    
+    }
+
+    private void DoAdvanced()
+    {
+        GUILayout.Label("Advanced Options", EditorStyles.boldLabel);
+        materialEditor.EnableInstancingField();
+    }
 
     private MaterialProperty FindProperty(string name)
     {
