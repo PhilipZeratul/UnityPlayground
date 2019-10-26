@@ -1,4 +1,4 @@
-﻿Shader "Custom/My First Lighting Shader Parallex PBS"
+﻿Shader "Custom/My First Lighting Shader Parallax PBS"
 {    
     Properties
     {
@@ -13,8 +13,8 @@
         [NoScaleOffset] _DetailNormalMap ("Detail Normal Map", 2D) = "bump" {}
         [NoScaleOffset] _DetailMask ("Detail Mask", 2D) = "white" {}
         _DetailBumpScale ("Detail Bump Scale", Float) = 1
-        [NoScaleOffset] _ParallexMap ("Parallex Map", 2D) = "bump" {}
-        _ParallexStrength ("Parallex Strength", Range(0, 0.1)) = 0
+        [NoScaleOffset] _ParallaxMap ("Parallax Map", 2D) = "bump" {}
+        _ParallaxStrength ("Parallax Strength", Range(0, 0.5)) = 0
         [NoScaleOffset] _OcclusionMap ("Occlusion", 2D) = "white" {}
         _OcclusionStrength ("Occlussion Strength", Range(0, 1)) = 1
         [NoScaleOffset] _EmissionMap ("Emission Map", 2D) = "black" {}
@@ -28,7 +28,15 @@
     CGINCLUDE
 
     #define BINORMAL_PER_FRAGMENT
-    #define FOG_DISTANCE
+    #define FOG_DISTANCE    
+
+    //#define PARALLAX_OFFSET_LIMITING
+    //#define PARALLAX_BIAS 0.42
+    #define PARALLAX_FUNCTION ParallaxRaymarching
+    #define PARALLAX_RAYMARCHING_STEPS 10
+    #define PARALLAX_RAYMARCHING_INTERPOLATE
+    #define PARALLAX_RAYMARCHING_SEARCH_STEP 3
+    #define PARALLAX_SUPPORT_SCALED_DYNAMIC_BATCHING
 
     ENDCG
 
@@ -56,7 +64,7 @@
             #pragma shader_feature _NORMAL_MAP
             #pragma shader_feature _METALLIC_MAP
             #pragma shader_feature _ _SMOOTHNESS_ALBEDO _SMOOTHNESS_METALLIC
-            #pragma shader_feature _PARALLEX_MAP
+            #pragma shader_feature _PARALLAX_MAP
             #pragma shader_feature _OCCLUSION_MAP
             #pragma shader_feature _EMISSION_MAP     
             #pragma shader_feature _DETAIL_MASK 
@@ -95,12 +103,12 @@
             #pragma shader_feature _NORMAL_MAP
             #pragma shader_feature _METALLIC_MAP
             #pragma shader_feature _ _SMOOTHNESS_ALBEDO _SMOOTHNESS_METALLIC
-            #pragma shader_feature _PARALLEX_MAP
+            #pragma shader_feature _PARALLAX_MAP
             #pragma shader_feature _DETAIL_MASK
             #pragma shader_feature _DETAIL_ALBEDO_MAP
             #pragma shader_feature _DETAIL_NORMAL_MAP  
             #pragma shader_feature _ _RENDERING_CUTOUT _RENDERING_FADE
-            #pragma shader_feature _PARALLEX_MAP
+            #pragma shader_feature _PARALLAX_MAP
 
             #pragma vertex MyVertexProgram
             #pragma fragment MyFragmentProgram           
@@ -130,7 +138,7 @@
             #pragma shader_feature _NORMAL_MAP
             #pragma shader_feature _METALLIC_MAP
             #pragma shader_feature _ _SMOOTHNESS_ALBEDO _SMOOTHNESS_METALLIC
-            #pragma shader_feature _PARALLEX_MAP
+            #pragma shader_feature _PARALLAX_MAP
             #pragma shader_feature _OCCLUSION_MAP
             #pragma shader_feature _EMISSION_MAP     
             #pragma shader_feature _DETAIL_MASK 

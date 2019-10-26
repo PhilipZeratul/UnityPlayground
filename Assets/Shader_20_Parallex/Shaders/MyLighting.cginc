@@ -13,7 +13,7 @@
 #endif
 
 #if !defined(LIGHTMAP_ON) && defined(SHADOWS_SCREEN)
-    #if defined(SHADOWS_SHADOWMASK) && !defined(UNITY_NO_SCREEN_SPACE_SHADOWS)
+    #if defined(SHADOWS_SHADOWMASK) && !defined(UNITY_NO_SCREENSPACE_SHADOWS)
         #define ADDITIONAL_MASKED_DIRECTIONAL_SHADOWS 1
     #endif
 #endif
@@ -36,8 +36,8 @@ float _BumpScale, _DetailBumpScale;
 sampler2D _MetallicMap;
 float _Metallic;
 float _Smoothness;
-sampler2D _ParallexMap;
-float _ParallexStrength;
+sampler2D _ParallaxMap;
+float _ParallaxStrength;
 sampler2D _OcclusionMap;
 float _OcclusionStrength;
 sampler2D _EmissionMap;
@@ -53,7 +53,7 @@ struct VertexData
     float4 tangent : TANGENT;
     float2 uv : TEXCOORD0;
     float2 uv1 : TEXCOORD1;
-    float3 uv2 : TEXCOORD2;
+    float2 uv2 : TEXCOORD2;
 };
 
 struct InterpolatorsVertex
@@ -86,7 +86,7 @@ struct InterpolatorsVertex
     #ifdef DYNAMICLIGHTMAP_ON
         float2 dynamicLightmapUV : TEXCOORD7;
     #endif
-    #ifdef _PARALLEX_MAP
+    #ifdef _PARALLAX_MAP
         float3 tangentViewDir : TEXCOORD8;
     #endif
 }; 
@@ -125,7 +125,7 @@ struct Interpolators
     #ifdef DYNAMICLIGHTMAP_ON
         float2 dynamicLightmapUV : TEXCOORD7;
     #endif
-    #ifdef _PARALLEX_MAP
+    #ifdef _PARALLAX_MAP
         float3 tangentViewDir : TEXCOORD8;
     #endif
 };                     
@@ -176,7 +176,11 @@ InterpolatorsVertex MyVertexProgram(VertexData v)
 
     ComputVertexColor(i);
 
-    #ifdef _PARALLEX_MAP
+    #ifdef _PARALLAX_MAP
+        #ifdef PARALLAX_SUPPORT_SCALED_DYNAMIC_BATCHING
+            v.tangent.xyz = normalize(v.tangent.xyz);
+            v.normal = normalize(v.normal);
+        #endif
         float3x3 objectToTangent = float3x3(v.tangent.xyz, cross(v.normal, v.tangent.xyz) * v.tangent.w, v.normal);
         i.tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
     #endif
@@ -457,11 +461,90 @@ float4 ApplyFog(float4 color, Interpolators i)
     return color; 
 } 
 
-void ApplyParallex(inout Interpolators i)
+float GetParallaxHeight(float2 uv)
 {
-    #ifdef _PARALLEX_MAP
+    return tex2D(_ParallaxMap, uv).g;
+}
+
+float2 ParallaxOffset(float2 uv, float2 viewDir)
+{
+    float height = GetParallaxHeight(uv) - 0.5;
+    height *= _ParallaxStrength;        
+    return viewDir * height;
+}
+
+float2 ParallaxRaymarching(float2 uv, float2 viewDir)
+{
+    #ifndef PARALLAX_RAYMARCHING_STEPS
+        #define PARALLAX_RAYMARCHING_STEPS 10
+    #endif
+    float2 uvOffset = 0;
+    float stepSize = 1.0 / PARALLAX_RAYMARCHING_STEPS;
+    float2 uvDelta = viewDir * stepSize * _ParallaxStrength;   
+    float stepHeight = 1;
+    float surfaceHeight = GetParallaxHeight(uv);
+
+    float2 prevUVOffset = uvOffset;
+    float prevStepHeight = stepHeight;
+    float prevSurfaceHeight = surfaceHeight;
+
+    for (int i = 1; i < PARALLAX_RAYMARCHING_STEPS && stepHeight > surfaceHeight; i++)
+    {
+        prevUVOffset = uvOffset;
+        prevStepHeight = stepHeight;
+        prevSurfaceHeight = surfaceHeight;
+
+        uvOffset -= uvDelta;
+        stepHeight -= stepSize;
+        surfaceHeight = GetParallaxHeight(uv + uvOffset);       
+    }
+
+    #ifndef PARALLAX_RAYMARCHING_SEARCH_STEP
+        #define PARALLAX_RAYMARCHING_SEARCH_STEP 0
+    #endif
+    #if PARALLAX_RAYMARCHING_SEARCH_STEP > 0
+        for (int i = 0; i < PARALLAX_RAYMARCHING_SEARCH_STEP; i++)
+        {
+            uvDelta *= 0.5;
+            stepSize *= 0.5;
+            if (stepHeight < surfaceHeight)
+            {
+                uvOffset += uvDelta;
+                stepHeight += stepSize;
+            }
+            else
+            {
+                uvOffset -= uvDelta;
+                stepHeight -= stepSize;
+            }
+            surfaceHeight = GetParallaxHeight(uv + uvOffset); 
+        }   
+    #elif defined(PARALLAX_RAYMARCHING_INTERPOLATE)
+        float prevDifference = prevStepHeight - prevSurfaceHeight;
+        float difference = stepHeight - surfaceHeight;
+        float t = prevDifference / (prevDifference - difference);
+        uvOffset = prevUVOffset - uvDelta * t;
+    #endif
+
+    return uvOffset;
+}
+
+void ApplyParallax(inout Interpolators i)
+{
+    #ifdef _PARALLAX_MAP
         i.tangentViewDir = normalize(i.tangentViewDir);
-        i.uv.xy += i.tangentViewDir.xy * _ParallexStrength;
+        #ifndef PARALLAX_OFFSET_LIMITING
+            #ifndef PARALLAX_BIAS
+                #define PARALLAX_BIAS 0.42
+            #endif
+            i.tangentViewDir.xy /= (i.tangentViewDir.z + PARALLAX_BIAS);
+        #endif   
+        #ifndef PARALLAX_FUNCTION
+            #define PARALLAX_FUNCTION ParallaxOffset
+        #endif   
+        float2 uvOffset = PARALLAX_FUNCTION(i.uv.xy, i.tangentViewDir.xy);
+        i.uv.xy += uvOffset;
+        i.uv.zw += uvOffset * (_DetailTex_ST.xy / _MainTex_ST.xy);
     #endif
 }
 
@@ -487,7 +570,7 @@ FragmentOutput MyFragmentProgram(Interpolators i) : SV_TARGET
     #ifdef LOD_FADE_CROSSFADE
         UnityApplyDitherCrossFade(i.vpos);
     #endif
-    ApplyParallex(i);
+    ApplyParallax(i);
     float alpha = GetAlpha(i);
     #ifdef _RENDERING_CUTOUT
         clip(alpha - _Cutoff);

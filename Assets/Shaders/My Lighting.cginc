@@ -1,4 +1,6 @@
-﻿#if !defined(MY_LIGHTING_INCLUDED)
+﻿// Upgrade NOTE: upgraded instancing buffer 'InstanceProperties' to new syntax.
+
+#if !defined(MY_LIGHTING_INCLUDED)
 #define MY_LIGHTING_INCLUDED
 
 #include "UnityPBSLighting.cginc"
@@ -23,7 +25,11 @@
 	#endif
 #endif
 
-float4 _Color;
+UNITY_INSTANCING_BUFFER_START(InstanceProperties)
+	UNITY_DEFINE_INSTANCED_PROP(float4, _Color)
+#define _Color_arr InstanceProperties
+UNITY_INSTANCING_BUFFER_END(InstanceProperties)
+
 sampler2D _MainTex, _DetailTex, _DetailMask;
 float4 _MainTex_ST, _DetailTex_ST;
 
@@ -34,6 +40,9 @@ sampler2D _MetallicMap;
 float _Metallic;
 float _Smoothness;
 
+sampler2D _ParallaxMap;
+float _ParallaxStrength;
+
 sampler2D _OcclusionMap;
 float _OcclusionStrength;
 
@@ -43,14 +52,17 @@ float3 _Emission;
 float _Cutoff;
 
 struct VertexData {
+	UNITY_VERTEX_INPUT_INSTANCE_ID
 	float4 vertex : POSITION;
 	float3 normal : NORMAL;
 	float4 tangent : TANGENT;
 	float2 uv : TEXCOORD0;
 	float2 uv1 : TEXCOORD1;
+	float2 uv2 : TEXCOORD2;
 };
 
-struct Interpolators {
+struct InterpolatorsVertex {
+	UNITY_VERTEX_INPUT_INSTANCE_ID
 	float4 pos : SV_POSITION;
 	float4 uv : TEXCOORD0;
 	float3 normal : TEXCOORD1;
@@ -77,6 +89,57 @@ struct Interpolators {
 	#if defined(LIGHTMAP_ON) || ADDITIONAL_MASKED_DIRECTIONAL_SHADOWS
 		float2 lightmapUV : TEXCOORD6;
 	#endif
+
+	#if defined(DYNAMICLIGHTMAP_ON)
+		float2 dynamicLightmapUV : TEXCOORD7;
+	#endif
+
+	#if defined(_PARALLAX_MAP)
+		float3 tangentViewDir : TEXCOORD8;
+	#endif
+};
+
+struct Interpolators {
+	UNITY_VERTEX_INPUT_INSTANCE_ID
+	#if defined(LOD_FADE_CROSSFADE)
+		UNITY_VPOS_TYPE vpos : VPOS;
+	#else
+		float4 pos : SV_POSITION;
+	#endif
+
+	float4 uv : TEXCOORD0;
+	float3 normal : TEXCOORD1;
+
+	#if defined(BINORMAL_PER_FRAGMENT)
+		float4 tangent : TEXCOORD2;
+	#else
+		float3 tangent : TEXCOORD2;
+		float3 binormal : TEXCOORD3;
+	#endif
+
+	#if FOG_DEPTH
+		float4 worldPos : TEXCOORD4;
+	#else
+		float3 worldPos : TEXCOORD4;
+	#endif
+
+	UNITY_SHADOW_COORDS(5)
+
+	#if defined(VERTEXLIGHT_ON)
+		float3 vertexLightColor : TEXCOORD6;
+	#endif
+
+	#if defined(LIGHTMAP_ON) || ADDITIONAL_MASKED_DIRECTIONAL_SHADOWS
+		float2 lightmapUV : TEXCOORD6;
+	#endif
+
+	#if defined(DYNAMICLIGHTMAP_ON)
+		float2 dynamicLightmapUV : TEXCOORD7;
+	#endif
+
+	#if defined(_PARALLAX_MAP)
+		float3 tangentViewDir : TEXCOORD8;
+	#endif
 };
 
 float GetDetailMask (Interpolators i) {
@@ -88,7 +151,8 @@ float GetDetailMask (Interpolators i) {
 }
 
 float3 GetAlbedo (Interpolators i) {
-	float3 albedo = tex2D(_MainTex, i.uv.xy).rgb * _Color.rgb;
+	float3 albedo =
+		tex2D(_MainTex, i.uv.xy).rgb * UNITY_ACCESS_INSTANCED_PROP(_Color_arr, _Color).rgb;
 	#if defined (_DETAIL_ALBEDO_MAP)
 		float3 details = tex2D(_DetailTex, i.uv.zw) * unity_ColorSpaceDouble;
 		albedo = lerp(albedo, albedo * details, GetDetailMask(i));
@@ -97,7 +161,7 @@ float3 GetAlbedo (Interpolators i) {
 }
 
 float GetAlpha (Interpolators i) {
-	float alpha = _Color.a;
+	float alpha = UNITY_ACCESS_INSTANCED_PROP(_Color_arr, _Color).a;
 	#if !defined(_SMOOTHNESS_ALBEDO)
 		alpha *= tex2D(_MainTex, i.uv.xy).a;
 	#endif
@@ -174,9 +238,11 @@ float3 CreateBinormal (float3 normal, float3 tangent, float binormalSign) {
 		(binormalSign * unity_WorldTransformParams.w);
 }
 
-Interpolators MyVertexProgram (VertexData v) {
-	Interpolators i;
-	UNITY_INITIALIZE_OUTPUT(Interpolators, i);
+InterpolatorsVertex MyVertexProgram (VertexData v) {
+	InterpolatorsVertex i;
+	UNITY_INITIALIZE_OUTPUT(InterpolatorsVertex, i);
+	UNITY_SETUP_INSTANCE_ID(v);
+	UNITY_TRANSFER_INSTANCE_ID(v, i);
 	i.pos = UnityObjectToClipPos(v.vertex);
 	i.worldPos.xyz = mul(unity_ObjectToWorld, v.vertex);
 	#if FOG_DEPTH
@@ -198,9 +264,28 @@ Interpolators MyVertexProgram (VertexData v) {
 		i.lightmapUV = v.uv1 * unity_LightmapST.xy + unity_LightmapST.zw;
 	#endif
 
+	#if defined(DYNAMICLIGHTMAP_ON)
+		i.dynamicLightmapUV =
+			v.uv2 * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
+	#endif
+
 	UNITY_TRANSFER_SHADOW(i, v.uv1);
 
 	ComputeVertexLightColor(i);
+
+	#if defined (_PARALLAX_MAP)
+		#if defined(PARALLAX_SUPPORT_SCALED_DYNAMIC_BATCHING)
+			v.tangent.xyz = normalize(v.tangent.xyz);
+			v.normal = normalize(v.normal);
+		#endif
+		float3x3 objectToTangent = float3x3(
+			v.tangent.xyz,
+			cross(v.normal, v.tangent.xyz) * v.tangent.w,
+			v.normal
+		);
+		i.tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
+	#endif
+
 	return i;
 }
 
@@ -305,9 +390,47 @@ UnityIndirect CreateIndirectLight (Interpolators i, float3 viewDir) {
 			#endif
 
 			ApplySubtractiveLighting(i, indirectLight);
-		#else
-			indirectLight.diffuse += max(0, ShadeSH9(float4(i.normal, 1)));
 		#endif
+
+		#if defined(DYNAMICLIGHTMAP_ON)
+			float3 dynamicLightDiffuse = DecodeRealtimeLightmap(
+				UNITY_SAMPLE_TEX2D(unity_DynamicLightmap, i.dynamicLightmapUV)
+			);
+
+			#if defined(DIRLIGHTMAP_COMBINED)
+				float4 dynamicLightmapDirection = UNITY_SAMPLE_TEX2D_SAMPLER(
+					unity_DynamicDirectionality, unity_DynamicLightmap,
+					i.dynamicLightmapUV
+				);
+            	indirectLight.diffuse += DecodeDirectionalLightmap(
+            		dynamicLightDiffuse, dynamicLightmapDirection, i.normal
+            	);
+			#else
+				indirectLight.diffuse += dynamicLightDiffuse;
+			#endif
+		#endif
+
+		#if !defined(LIGHTMAP_ON) && !defined(DYNAMICLIGHTMAP_ON)
+			#if UNITY_LIGHT_PROBE_PROXY_VOLUME
+				if (unity_ProbeVolumeParams.x == 1) {
+					indirectLight.diffuse = SHEvalLinearL0L1_SampleProbeVolume(
+						float4(i.normal, 1), i.worldPos
+					);
+					indirectLight.diffuse = max(0, indirectLight.diffuse);
+					#if defined(UNITY_COLORSPACE_GAMMA)
+			            indirectLight.diffuse =
+			            	LinearToGammaSpace(indirectLight.diffuse);
+			        #endif
+				}
+				else {
+					indirectLight.diffuse +=
+						max(0, ShadeSH9(float4(i.normal, 1)));
+				}
+			#else
+				indirectLight.diffuse += max(0, ShadeSH9(float4(i.normal, 1)));
+			#endif
+		#endif
+
 		float3 reflectionDir = reflect(-viewDir, i.normal);
 		Unity_GlossyEnvironmentData envData;
 		envData.roughness = 1 - GetSmoothness(i);
@@ -384,6 +507,93 @@ float4 ApplyFog (float4 color, Interpolators i) {
 	return color;
 }
 
+float GetParallaxHeight (float2 uv) {
+	return tex2D(_ParallaxMap, uv).g;
+}
+
+float2 ParallaxOffset (float2 uv, float2 viewDir) {
+	float height = GetParallaxHeight(uv);
+	height -= 0.5;
+	height *= _ParallaxStrength;
+	return viewDir * height;
+}
+
+float2 ParallaxRaymarching (float2 uv, float2 viewDir) {
+	#if !defined(PARALLAX_RAYMARCHING_STEPS)
+		#define PARALLAX_RAYMARCHING_STEPS 10
+	#endif
+	float2 uvOffset = 0;
+	float stepSize = 1.0 / PARALLAX_RAYMARCHING_STEPS;
+	float2 uvDelta = viewDir * (stepSize * _ParallaxStrength);
+
+	float stepHeight = 1;
+	float surfaceHeight = GetParallaxHeight(uv);
+
+	float2 prevUVOffset = uvOffset;
+	float prevStepHeight = stepHeight;
+	float prevSurfaceHeight = surfaceHeight;
+
+	for (
+		int i = 1;
+		i < PARALLAX_RAYMARCHING_STEPS && stepHeight > surfaceHeight;
+		i++
+	) {
+		prevUVOffset = uvOffset;
+		prevStepHeight = stepHeight;
+		prevSurfaceHeight = surfaceHeight;
+		
+		uvOffset -= uvDelta;
+		stepHeight -= stepSize;
+		surfaceHeight = GetParallaxHeight(uv + uvOffset);
+	}
+
+	#if !defined(PARALLAX_RAYMARCHING_SEARCH_STEPS)
+		#define PARALLAX_RAYMARCHING_SEARCH_STEPS 0
+	#endif
+	#if PARALLAX_RAYMARCHING_SEARCH_STEPS > 0
+		for (int i = 0; i < PARALLAX_RAYMARCHING_SEARCH_STEPS; i++) {
+			uvDelta *= 0.5;
+			stepSize *= 0.5;
+
+			if (stepHeight < surfaceHeight) {
+				uvOffset += uvDelta;
+				stepHeight += stepSize;
+			}
+			else {
+				uvOffset -= uvDelta;
+				stepHeight -= stepSize;
+			}
+			surfaceHeight = GetParallaxHeight(uv + uvOffset);
+		}
+	#elif defined(PARALLAX_RAYMARCHING_INTERPOLATE)
+		float prevDifference = prevStepHeight - prevSurfaceHeight;
+		float difference = surfaceHeight - stepHeight;
+		float t = prevDifference / (prevDifference + difference);
+		uvOffset = prevUVOffset - uvDelta * t;
+	#endif
+
+	return uvOffset;
+}
+
+void ApplyParallax (inout Interpolators i) {
+	#if defined(_PARALLAX_MAP)
+		i.tangentViewDir = normalize(i.tangentViewDir);
+		#if !defined(PARALLAX_OFFSET_LIMITING)
+			#if !defined(PARALLAX_BIAS)
+				#define PARALLAX_BIAS 0.42
+			#endif
+			i.tangentViewDir.xy /= (i.tangentViewDir.z + PARALLAX_BIAS);
+		#endif
+
+		#if !defined(PARALLAX_FUNCTION)
+			#define PARALLAX_FUNCTION ParallaxOffset
+		#endif
+		float2 uvOffset = PARALLAX_FUNCTION(i.uv.xy, i.tangentViewDir.xy);
+		i.uv.xy += uvOffset;
+		i.uv.zw += uvOffset * (_DetailTex_ST.xy / _MainTex_ST.xy);
+	#endif
+}
+
 struct FragmentOutput {
 	#if defined(DEFERRED_PASS)
 		float4 gBuffer0 : SV_Target0;
@@ -400,6 +610,13 @@ struct FragmentOutput {
 };
 
 FragmentOutput MyFragmentProgram (Interpolators i) {
+	UNITY_SETUP_INSTANCE_ID(i);
+	#if defined(LOD_FADE_CROSSFADE)
+		UnityApplyDitherCrossFade(i.vpos);
+	#endif
+
+	ApplyParallax(i);
+
 	float alpha = GetAlpha(i);
 	#if defined(_RENDERING_CUTOUT)
 		clip(alpha - _Cutoff);

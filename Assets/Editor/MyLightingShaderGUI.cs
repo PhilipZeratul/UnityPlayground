@@ -144,7 +144,7 @@ public class MyLightingShaderGUI : ShaderGUI
         DoMetallic();
         DoSmoothness();
         DoNormals();
-        DoParallex();
+        DoParallax();
         DoOcclusion();
 		DoEmission();
         if (shouldShowAlphaCutout)
@@ -162,14 +162,14 @@ public class MyLightingShaderGUI : ShaderGUI
             SetKeyword("_NORMAL_MAP", normalMap.textureValue);
     }
 
-    private void DoParallex()
+    private void DoParallax()
     {
-        MaterialProperty parallexMap = FindProperty("_ParallexMap");
-        Texture textureValue = parallexMap.textureValue;
+        MaterialProperty ParallaxMap = FindProperty("_ParallaxMap");
+        Texture textureValue = ParallaxMap.textureValue;
         EditorGUI.BeginChangeCheck();
-        materialEditor.TexturePropertySingleLine(MakeLabel(parallexMap, "Parallex (G)"), parallexMap, textureValue ? FindProperty("_ParallexStrength") : null);
-        if (EditorGUI.EndChangeCheck() && parallexMap.textureValue != textureValue)
-            SetKeyword("_PARALLEX_MAP", parallexMap.textureValue);
+        materialEditor.TexturePropertySingleLine(MakeLabel(ParallaxMap, "Parallax (G)"), ParallaxMap, textureValue ? FindProperty("_ParallaxStrength") : null);
+        if (EditorGUI.EndChangeCheck() && ParallaxMap.textureValue != textureValue)
+            SetKeyword("_PARALLAX_MAP", ParallaxMap.textureValue);
     }
 
     private void DoOcclusion()
