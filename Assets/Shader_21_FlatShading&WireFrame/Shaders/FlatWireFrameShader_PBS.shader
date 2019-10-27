@@ -1,5 +1,5 @@
-﻿Shader "Custom/My First Lighting Shader Parallax PBS"
-{    
+﻿Shader "Custom/Flat Wire Frame PBS"
+{
     Properties
     {
         _Color ("Tint", Color) = (1, 1, 1, 1)
@@ -23,6 +23,9 @@
         [HideInInspector] _SrcBlend ("SrcBlend", Float) = 1
         [HideInInspector] _DstBlend ("DstBlend", Float) = 0   
         [HideInInspector] _ZWrite ("Zwrite", Float) = 1
+        _WireframeColor ("Wireframe Color", Color) = (0, 0, 0)
+        _WireframeSmoothing ("Wireframe Smoothing", Range(0, 10)) = 1
+        _WireframeThickness ("Wireframe Thickness", Range(0, 10)) = 1
     }
 
     CGINCLUDE
@@ -48,14 +51,14 @@
             {
                 "LightMode" = "ForwardBase"
             }
-
+            
             Blend [_SrcBlend] [_DstBlend]
             ZWrite [_ZWrite]
-
+            
             CGPROGRAM
 
-            #pragma target 3.0
-            
+            #pragma target 4.0
+
             #pragma multi_compile_fwdbase
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
@@ -73,13 +76,12 @@
             #pragma shader_feature _ _RENDERING_CUTOUT _RENDERING_FADE _RENDERING_TRANSPARENT
 
             #define FORWARD_BASE_PASS
-
             #pragma vertex MyVertexProgram
             #pragma fragment MyFragmentProgram
+            #pragma geometry MyGeometryProgram
 
-            #include "MyLighting.cginc"
+            #include "MyFlatWireFrame.cginc"
             
-
             ENDCG
         }
 
@@ -95,7 +97,7 @@
 
             CGPROGRAM
 
-            #pragma target 3.0
+            #pragma target 4.0
 
             #pragma multi_compile_fwdadd_fullshadows
             #pragma multi_compile_fog
@@ -111,8 +113,9 @@
 
             #pragma vertex MyVertexProgram
             #pragma fragment MyFragmentProgram           
+            #pragma geometry MyGeometryProgram
 
-            #include "MyLighting.cginc"
+            #include "MyFlatWireFrame.cginc"
 
             ENDCG
         }
@@ -126,7 +129,7 @@
 
             CGPROGRAM
 
-            #pragma target 3.0
+            #pragma target 4.0
             #pragma exclude_renderers nomrt
 
             #pragma multi_compile_prepassfinal
@@ -149,8 +152,9 @@
 
             #pragma vertex MyVertexProgram
             #pragma fragment MyFragmentProgram
+            #pragma geometry MyGeometryProgram
 
-            #include "MyLighting.cginc"
+            #include "MyFlatWireFrame.cginc"
             
 
             ENDCG
@@ -176,7 +180,7 @@
             #pragma shader_feature _SEMITRANSPARENT_SHADOWS
 
             #pragma vertex MyShadowVertexProgram
-            #pragma fragment MyShadowFragmentProgram            
+            #pragma fragment MyShadowFragmentProgram
 
             #include "MyShadows.cginc"
 

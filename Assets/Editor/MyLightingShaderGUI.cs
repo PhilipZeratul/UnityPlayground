@@ -76,6 +76,8 @@ public class MyLightingShaderGUI : ShaderGUI
         this.properties = properties;
 
         DoRenderingMode();
+        if (target.HasProperty("_WireframeColor"))
+            DoWireframe();
         DoMain();
         DoSecondary();
         DoAdvanced();
@@ -133,6 +135,16 @@ public class MyLightingShaderGUI : ShaderGUI
 
         if (!isSemiTransparentShadows)
             shouldShowAlphaCutout = true;
+    }
+
+    void DoWireframe()
+    {
+        GUILayout.Label("Wireframe", EditorStyles.boldLabel);
+        EditorGUI.indentLevel += 2;
+        materialEditor.ShaderProperty(FindProperty("_WireframeColor"), MakeLabel("Color"));
+        materialEditor.ShaderProperty(FindProperty("_WireframeSmoothing"), MakeLabel("Smoothing", "In screen space."));
+        materialEditor.ShaderProperty(FindProperty("_WireframeThickness"), MakeLabel("Thickness", "In screen space."));
+        EditorGUI.indentLevel -= 2;
     }
 
     private void DoMain()
@@ -270,7 +282,7 @@ public class MyLightingShaderGUI : ShaderGUI
         materialEditor.TexturePropertySingleLine(MakeLabel(detailNormalMap), detailNormalMap, textureValue ? FindProperty("_DetailBumpScale") : null);
         if (EditorGUI.EndChangeCheck() && detailNormalMap.textureValue != textureValue)
             SetKeyword("_DETAIL_NORMAL_MAP", detailNormalMap.textureValue);
-    }
+    }    
 
     private void DoAdvanced()
     {
