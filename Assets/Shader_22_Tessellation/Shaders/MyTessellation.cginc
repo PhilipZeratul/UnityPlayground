@@ -77,8 +77,8 @@ TessellationFactors MyPatchConstantFunction(InputPatch<TessellationControlPoint,
 
 [UNITY_domain("tri")]
 InterpolatorsVertex MyDomainProgram(TessellationFactors factors, 
-                     OutputPatch<TessellationControlPoint, 3> patch,
-                     float3 barycentricCoordinates : SV_DomainLocation)
+                                    OutputPatch<TessellationControlPoint, 3> patch,
+                                    float3 barycentricCoordinates : SV_DomainLocation)
 {
     VertexData data;
     MY_DOMAIN_PROGRAM_INTERPOLATE(vertex)
