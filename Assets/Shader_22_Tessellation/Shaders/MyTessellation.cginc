@@ -63,9 +63,9 @@ float TessellationEdgeFactor(float3 p0, float3 p1)
 TessellationFactors MyPatchConstantFunction(InputPatch<TessellationControlPoint, 3> patch)
 {
     TessellationFactors f;
-    float3 p0 = mul(unity_ObjectToWorld, patch[0].vertex.xyz).xyz;
-    float3 p1 = mul(unity_ObjectToWorld, patch[1].vertex.xyz).xyz;
-    float3 p2 = mul(unity_ObjectToWorld, patch[2].vertex.xyz).xyz;
+    float3 p0 = mul(unity_ObjectToWorld, patch[0].vertex).xyz;
+    float3 p1 = mul(unity_ObjectToWorld, patch[1].vertex).xyz;
+    float3 p2 = mul(unity_ObjectToWorld, patch[2].vertex).xyz;
     f.edge[0] = TessellationEdgeFactor(p1, p2);
     f.edge[1] = TessellationEdgeFactor(p2, p0);
     f.edge[2] = TessellationEdgeFactor(p0, p1);
